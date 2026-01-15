@@ -11,6 +11,7 @@ Improvements implemented:
 
 Added:
 - Country boundaries overlay from countries.shp (GeoPandas).
+- Correct handling of NaN values: NaNs remain NaN and are shown in the plot (grey).
 """
 
 import numpy as np
@@ -67,18 +68,23 @@ def de_martonne_index(pr: xr.DataArray, tas_c: xr.DataArray) -> xr.DataArray:
 def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     """
     Classify the De Martonne index into climate classes.
+
+    Important:
+    - We keep the class code as float so NaNs remain NaN.
+      Casting to int would destroy NaNs and could incorrectly assign them to class 1.
     """
     code = xr.full_like(I, fill_value=np.nan, dtype=float)
 
-    code = xr.where(I < 10, 1, code)
-    code = xr.where((I >= 10) & (I < 20), 2, code)
-    code = xr.where((I >= 20) & (I < 24), 3, code)
-    code = xr.where((I >= 24) & (I < 28), 4, code)
-    code = xr.where((I >= 28) & (I < 35), 5, code)
-    code = xr.where((I >= 35) & (I < 55), 6, code)
-    code = xr.where(I >= 55, 7, code)
+    code = xr.where(I < 10, 1.0, code)
+    code = xr.where((I >= 10) & (I < 20), 2.0, code)
+    code = xr.where((I >= 20) & (I < 24), 3.0, code)
+    code = xr.where((I >= 24) & (I < 28), 4.0, code)
+    code = xr.where((I >= 28) & (I < 35), 5.0, code)
+    code = xr.where((I >= 35) & (I < 55), 6.0, code)
+    code = xr.where(I >= 55, 7.0, code)
 
-    code = code.astype("int16")
+    # Keep as float to preserve NaNs
+    code = code.astype("float32")
     code.name = "climate_class_code"
 
     label = xr.full_like(code, "", dtype=object)
@@ -89,6 +95,9 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     label = xr.where(code == 5, "Humid", label)
     label = xr.where(code == 6, "Very Humid", label)
     label = xr.where(code == 7, "Extremely Humid", label)
+
+    # Optional: explicit label for missing cells
+    label = xr.where(xr.ufuncs.isnan(code), "No data", label)
 
     label = label.astype(str)
     label.name = "climate_class_label"
@@ -200,7 +209,7 @@ def compute_period_mean_idm(idm: xr.Dataset, period: Period | None) -> xr.Datase
 
 
 # ------------------------------------------------------------
-# Plotting 
+# Plotting (discrete legend + country boundaries + NaN visualization)
 # ------------------------------------------------------------
 CLASS_LABELS = {
     1: "Arid (<10)",
@@ -218,6 +227,7 @@ CLASS_COLORS = [
 ]
 
 CMAP = ListedColormap(CLASS_COLORS)
+CMAP.set_bad(color="lightgrey", alpha=1.0)  # show NaNs as grey
 NORM = BoundaryNorm(np.arange(0.5, 8.5, 1), CMAP.N)
 
 
@@ -227,9 +237,18 @@ def infer_lat_lon(da: xr.DataArray):
     return lat, lon
 
 
-def plot_class_map(class_ds: xr.Dataset, title: str, subtitle: str, outfile: str, countries_gdf: gpd.GeoDataFrame):
+def plot_class_map(
+    class_ds: xr.Dataset,
+    title: str,
+    subtitle: str,
+    outfile: str,
+    countries_gdf: gpd.GeoDataFrame
+):
     """
-    Plot a classification map with discrete legend, metadata box, and country boundaries overlay.
+    Plot a classification map with:
+    - discrete legend
+    - country boundaries overlay
+    - NaNs displayed as grey (CMAP.set_bad)
     """
     code = class_ds["climate_class_code"]
     lat, lon = infer_lat_lon(code)
@@ -245,13 +264,11 @@ def plot_class_map(class_ds: xr.Dataset, title: str, subtitle: str, outfile: str
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
-    # Overlay: country boundaries
-    # Assumption: raster uses lon/lat in EPSG:4326
+    # Overlay: country boundaries (assumes lon/lat = EPSG:4326)
     if countries_gdf is not None and len(countries_gdf) > 0:
         gdf = countries_gdf
         if gdf.crs is not None and str(gdf.crs).lower() not in ["epsg:4326", "crs84"]:
             gdf = gdf.to_crs("EPSG:4326")
-        # Draw only boundaries 
         gdf.boundary.plot(ax=ax, linewidth=0.5, color="black", alpha=0.8, zorder=3)
 
     legend = [
@@ -259,6 +276,9 @@ def plot_class_map(class_ds: xr.Dataset, title: str, subtitle: str, outfile: str
               label=f"{CLASS_LABELS[i]}")
         for i in range(1, 8)
     ]
+    # Optional: include "No data" in the legend
+    legend.append(Patch(facecolor="lightgrey", edgecolor="black", label="No data"))
+
     ax.legend(
         handles=legend,
         title="De Martonne classes",
@@ -267,7 +287,6 @@ def plot_class_map(class_ds: xr.Dataset, title: str, subtitle: str, outfile: str
         title_fontsize=10,
         frameon=True
     )
-
 
     fig.tight_layout()
     fig.savefig(outfile, dpi=200)

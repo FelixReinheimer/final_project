@@ -8,7 +8,7 @@ Created on Wed Jan  7 16:55:34 2026
 from pathlib import Path
 import xarray as xr
 import geopandas as gpd
-
+import pandas as pd
 
 def load_timeseries(base_path: str) -> dict[str, xr.Dataset]:
     """
@@ -34,19 +34,22 @@ def load_timeseries(base_path: str) -> dict[str, xr.Dataset]:
     return data
 
 
-# def load_population(
-#     pop_path: str = "./data/population/population_histsoc_0p5deg_annual_1861-2005.nc4"
-# ) -> xr.Dataset:
-#     """
-#     Load population NetCDF file using cftime for time decoding.
-#     (This may raise a ValueError for 'years since ...' time units.)
-#     """
-#     pop_file = Path(pop_path)
-#     if not pop_file.exists():
-#         raise FileNotFoundError(f"Population file not found: {pop_file}")
-#
-#     return xr.open_dataset(pop_file, use_cftime=True)
-
+def load_population(
+    pop_path: str = "./data/population/population_histsoc_0p5deg_annual_1861-2005.nc4"
+) -> xr.Dataset:
+    """
+    Load population NetCDF file using cftime for time decoding.
+    (This may raise a ValueError for 'years since ...' time units.)
+    """
+    pop_file = Path(pop_path)
+    if not pop_file.exists():
+        raise FileNotFoundError(f"Population file not found: {pop_file}")
+    
+    population_fixedtime = xr.open_dataset(pop_file, decode_times=False)
+    population_fixedtime["time"] = pd.date_range(start="1861-01-01", end="2005-01-01",freq="YS")
+    
+    return population_fixedtime
+    
 
 def load_countries_shp(
     shp_dir: str = "./Countries_Area",
@@ -93,7 +96,7 @@ tas_ssp126 = tas["ssp126"]
 tas_ssp585 = tas["ssp585"]
 
 # Load population (as originally attempted)
-# population = load_population()
+population = load_population()
 
 # Load countries shapefile
 countries = load_countries_shp("./Countries_Area", "countries.shp")
@@ -116,12 +119,12 @@ if __name__ == "__main__":
         tas_historical.time.max().values
     )
 
-    # print(
-    #     "POPULATION time axis:",
-    #     population.time.values[:5],
-    #     "...",
-    #     population.time.values[-5:]
-    # )
+    print(
+        "POPULATION time axis:",
+        population.time.values[:5],
+        "...",
+        population.time.values[-5:]
+    )
 
     print("Countries shapefile loaded.")
     print("Number of features:", len(countries))
