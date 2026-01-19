@@ -290,7 +290,11 @@ def plot_class_map(
 
     fig.tight_layout()
     fig.savefig(outfile, dpi=200)
+<<<<<<< HEAD
     plt.close(fig)
+=======
+    plt.show(fig)
+>>>>>>> Felix
 
 
 # ------------------------------------------------------------
