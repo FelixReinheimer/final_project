@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-<<<<<<< HEAD
 """
 Created on Mon Jan 19 14:21:38 2026
 
 @author: bbill
 """
-
-=======
 
 import numpy as np
 import pandas as pd
@@ -261,4 +258,3 @@ for scen, pername, idm, per in future_cases:
 print("\nSaved maps:")
 print(" - pop_2005_historical_baseline.png")
 print(" - pop_2005_resettled_*.png")
->>>>>>> Felix

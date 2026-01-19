@@ -130,8 +130,3 @@ if __name__ == "__main__":
     print("Number of features:", len(countries))
     print("CRS:", countries.crs)
     print("Columns:", list(countries.columns))
-<<<<<<< HEAD
-=======
-
-
->>>>>>> Felix
