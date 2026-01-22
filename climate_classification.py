@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+1# -*- coding: utf-8 -*-
 """
 De Martonne Climate Classification with an interactive console menu.
 
@@ -96,7 +96,7 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     label = xr.where(code == 6, "Very Humid", label)
     label = xr.where(code == 7, "Extremely Humid", label)
 
-    # Optional: explicit label for missing cells
+    # Explicit label for missing cells
     label = xr.where(xr.ufuncs.isnan(code), "No data", label)
 
     label = label.astype(str)
@@ -290,7 +290,6 @@ def plot_class_map(
 
     fig.tight_layout()
     fig.savefig(outfile, dpi=200)
-    plt.close(fig)
     plt.show(fig)
 
 
