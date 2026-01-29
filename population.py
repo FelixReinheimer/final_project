@@ -170,9 +170,7 @@ def classify_population(pop2d: xr.DataArray) -> xr.DataArray:
     """
     pop_class = xr.full_like(pop2d, np.nan, dtype=np.float32)
 
-    # Important: handle small float values between 0 and 1 (otherwise they remain unclassified)
     pop_class = xr.where((pop2d >= 0) & (pop2d < 1), 1, pop_class)
-
     pop_class = xr.where((pop2d >= 1) & (pop2d < 10), 2, pop_class)
     pop_class = xr.where((pop2d >= 10) & (pop2d < 100), 3, pop_class)
     pop_class = xr.where((pop2d >= 100) & (pop2d < 1000), 4, pop_class)
