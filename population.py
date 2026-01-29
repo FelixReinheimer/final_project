@@ -156,7 +156,7 @@ def classify_population(pop2d: xr.DataArray) -> xr.DataArray:
     Convert absolute population values to discrete classes for plotting.
 
     Class codes:
-      1: [0, 1)           (treated as 0 people; can occur due to float ops)
+      1: [0, 1)           
       2: [1, 10)
       3: [10, 100)
       4: [100, 1,000)
@@ -182,7 +182,6 @@ def classify_population(pop2d: xr.DataArray) -> xr.DataArray:
 
     pop_class.name = "population_class"
     return pop_class
-
 
 def plot_pop_map(pop2d, title, outfile):
     """
@@ -238,10 +237,6 @@ def plot_pop_map(pop2d, title, outfile):
     plt.tight_layout()
     plt.savefig(outfile, dpi=200)
     plt.show()
-    
-    
-
-
 
 def resettle(pop_src, hist_code, fut_code):
     """
