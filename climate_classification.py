@@ -1,17 +1,12 @@
-1# -*- coding: utf-8 -*-
 """
-De Martonne Climate Classification with an interactive console menu.
+Interactive De Martonne climate classification map generator.
 
-Improvements implemented:
-1) If the user selects "Historical", no period selection is requested (fixed 30-year set).
-2) If the selected period is shorter than 30 years (or not enough years exist in the dataset),
-   the program does not crash. It prints a message and asks again.
-3) After creating a figure, the program returns to the main menu so the user can create more maps.
-4) An "exit" option is provided to quit the program gracefully.
+This script computes the De Martonne aridity index (I = P / (T + 10)) from
+gridded precipitation (pr) and temperature (tas) datasets and classifies
+the result into discrete climate classes. Users can generate maps via a
+console menu for the historical period or for future scenarios (SSP1-2.6,
+SSP5-8.5) and select predefined or custom 30-year periods.
 
-Added:
-- Country boundaries overlay from countries.shp (GeoPandas).
-- Correct handling of NaN values: NaNs remain NaN and are shown in the plot (grey).
 """
 
 import numpy as np
@@ -35,6 +30,7 @@ from data_import import (
 def tas_to_celsius(tas: xr.DataArray) -> xr.DataArray:
     """
     Convert temperature from Kelvin to Celsius if necessary.
+    
     """
     units = (tas.attrs.get("units") or "").lower()
     if units in ["k", "kelvin"]:
@@ -52,6 +48,7 @@ def de_martonne_index(pr: xr.DataArray, tas_c: xr.DataArray) -> xr.DataArray:
     """
     Compute the De Martonne aridity index:
         I = P / (T + 10)
+        
     """
     I = pr / (tas_c + 10.0)
     I.name = "I_DM"
@@ -72,9 +69,10 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     Important:
     - We keep the class code as float so NaNs remain NaN.
       Casting to int would destroy NaNs and could incorrectly assign them to class 1.
+      
     """
     code = xr.full_like(I, fill_value=np.nan, dtype=float)
-
+    
     code = xr.where(I < 10, 1.0, code)
     code = xr.where((I >= 10) & (I < 20), 2.0, code)
     code = xr.where((I >= 20) & (I < 24), 3.0, code)
@@ -87,7 +85,9 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     code = code.astype("float32")
     code.name = "climate_class_code"
 
+
     label = xr.full_like(code, "", dtype=object)
+    
     label = xr.where(code == 1, "Arid", label)
     label = xr.where(code == 2, "Semi-arid", label)
     label = xr.where(code == 3, "Mediterranean", label)
@@ -102,6 +102,7 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
     label = label.astype(str)
     label.name = "climate_class_label"
 
+    # Merge into a single data set
     idm = xr.Dataset(
         {
             "I_DM": I,
@@ -122,7 +123,7 @@ def classify_de_martonne(I: xr.DataArray) -> xr.Dataset:
 
 
 # ------------------------------------------------------------
-# Apply classification to a scenario
+# Apply classification to a scenario of the users choice
 # ------------------------------------------------------------
 def run_climate_classification(pr_ds: xr.Dataset, tas_ds: xr.Dataset) -> xr.Dataset:
     tas_c = tas_to_celsius(tas_ds["tas"])
@@ -131,7 +132,7 @@ def run_climate_classification(pr_ds: xr.Dataset, tas_ds: xr.Dataset) -> xr.Data
 
 
 # ------------------------------------------------------------
-# Period handling
+# Definition and validation of analysis periods
 # ------------------------------------------------------------
 class Period:
     def __init__(self, name: str, start_year: int, end_year: int):
@@ -147,14 +148,14 @@ class Period:
             return False
         return self.length_years() >= min_years
 
-
+# predefined periods
 NEAR_FUTURE = Period("Near future (2031–2060)", 2031, 2060)
 FAR_FUTURE = Period("Far future (2071–2100)", 2071, 2100)
 
 
-# ------------------------------------------------------------
-# Time conversion (works for string years like '2031')
-# ------------------------------------------------------------
+# -------------------------------------------------------------------
+# Conversion of time coordinates to calendar years in integer
+# -------------------------------------------------------------------
 def time_to_years(time_coord: xr.DataArray) -> xr.DataArray:
     if np.issubdtype(time_coord.dtype, np.integer):
         return time_coord.astype(int)
@@ -177,27 +178,46 @@ def time_to_years(time_coord: xr.DataArray) -> xr.DataArray:
         ) from e
 
 
+# ------------------------------------------------------------
+# Period-based aggregation and climate classification
+# ------------------------------------------------------------
 def compute_period_mean_idm(idm: xr.Dataset, period: Period | None) -> xr.Dataset:
     """
     Compute mean I_DM over a selected period (or full range) and classify it.
+    
     """
     if "time" not in idm.dims:
         raise ValueError("Dataset has no 'time' dimension.")
 
     years = time_to_years(idm["time"])
 
+    # Determine available data range
+    available_min = int(years.min().values)
+    available_max = int(years.max().values)
+
     if period is None:
         mask = xr.ones_like(years, dtype=bool)
         period_name = "Full available time range"
-        period_years = f"{int(years.min())}-{int(years.max())}"
+        period_years = f"{available_min}-{available_max}"
     else:
+        # Hard check: selected period must be fully inside the available data range
+        if period.start_year < available_min or period.end_year > available_max:
+            raise ValueError(
+                f"Selected period {period.start_year}-{period.end_year} is outside the "
+                f"available data range {available_min}-{available_max}."
+            )
+
         mask = (years >= period.start_year) & (years <= period.end_year)
         period_name = period.name
         period_years = f"{period.start_year}-{period.end_year}"
 
+    # Count available years in the selected period
     n_years = int(mask.sum().values)
     if n_years < 30:
-        raise ValueError(f"Selected range contains only {n_years} years (minimum is 30).")
+        raise ValueError(
+            f"Selected range contains only {n_years} years (minimum is 30). "
+            f"Available data range is {available_min}-{available_max}."
+        )
 
     I_mean = idm["I_DM"].where(mask).mean(dim="time", skipna=True)
     I_mean.name = "I_DM"
@@ -206,6 +226,7 @@ def compute_period_mean_idm(idm: xr.Dataset, period: Period | None) -> xr.Datase
     out.attrs["period_name"] = period_name
     out.attrs["period_years"] = period_years
     return out
+
 
 
 # ------------------------------------------------------------
