@@ -32,13 +32,13 @@ PIPELINE SUMMARY
    Computes the De Martonne aridity index, classifies climate zones, and
    generates maps via a command-line driven workflow.
 
-3. extra_task.py
+3. population.py
+   Aggregates population by climate class and simulates climate-driven
+   resettlement patterns. 
+   
+4. extra_task.py
    Computes country-level fractions of climate classes for multiple scenarios
    and time periods via a command-line driven workflow.
-
-4. population.py
-   Aggregates population by climate class and simulates climate-driven
-   resettlement patterns.
 
 
 SCIENTIFIC CONTEXT
