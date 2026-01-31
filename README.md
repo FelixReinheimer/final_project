@@ -16,6 +16,12 @@ with gridded population data to assess population exposure, climate class
 transitions, and hypothetical resettlement patterns driven by increasing
 aridity.
 
+The historical climate classification is based on data from 1861 to 2005.
+Future climate scenarios (SSP1-2.6 and SSP5-8.5) are available for the period
+2031 to 2100. Population analyses and resettlement simulations use population
+data from the year 2005 as a fixed reference to isolate the effects of climate
+change.
+
 
 PIPELINE SUMMARY
 ----------------
