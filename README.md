@@ -25,18 +25,18 @@ change.
 
 PIPELINE SUMMARY
 ----------------
-1. data_import.py
+1. data_import.py  
    Loads and prepares climate, population, and geographic input data.
 
-2. climate_classification.py
+2. climate_classification.py  
    Computes the De Martonne aridity index, classifies climate zones, and
    generates maps via a command-line driven workflow.
 
-3. population.py
+3. population.py  
    Aggregates population by climate class and simulates climate-driven
    resettlement patterns. 
    
-4. extra_task.py
+4. extra_task.py  
    Computes country-level fractions of climate classes for multiple scenarios
    and time periods via a command-line driven workflow.
 
