@@ -81,6 +81,6 @@ OUTPUTS
 
 AUTHORS
 -------
-Bilal Billouch
-Felix Reinheimer
+Bilal Billouch  
+Felix Reinheimer  
 Programming for Geographers with Python – 2025/2026
