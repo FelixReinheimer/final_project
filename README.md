@@ -57,14 +57,18 @@ Required Python packages:
 - shapely
 - xarray
 
+
 USAGE
 -----
-Run the scripts from the project root directory, depending on the analysis
-task of interest. Typical examples include:
+The Python scripts are run from the main project folder. This is the folder
+that contains the Python files and the data directories.
 
-python climate_classification.py
-python extra_task.py
-python population.py
+To run an analysis, open a terminal, navigate to the project folder, and
+execute the desired script, for example:
+
+- climate_classification.py
+- extra_task.py
+- population.py
 
 
 OUTPUTS
