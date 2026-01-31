@@ -1,0 +1,82 @@
+GLOBAL CLIMATE ZONE CLASSIFICATION FOR CURRENT AND FUTURE PERIODS
+AND SIMULATED POPULATION RESETTLEMENT UNDER CLIMATE CHANGE
+
+============================================================
+
+OVERVIEW
+--------
+This project focuses on the global classification of climate zones for historical
+and future climate conditions and the simulation of population redistribution
+under climate change.
+
+Using gridded precipitation and temperature data from historical records and
+future climate scenarios (SSP1-2.6 and SSP5-8.5), climate zones are classified
+based on the De Martonne aridity index. These classifications are then combined
+with gridded population data to assess population exposure, climate class
+transitions, and hypothetical resettlement patterns driven by increasing
+aridity.
+
+
+PIPELINE SUMMARY
+----------------
+1. data_import.py
+   Loads and prepares climate, population, and geographic input data.
+
+2. climate_classification.py
+   Computes the De Martonne aridity index, classifies climate zones, and
+   generates maps via a command-line driven workflow.
+
+3. extra_task.py
+   Computes country-level fractions of climate classes for multiple scenarios
+   and time periods via a command-line driven workflow.
+
+4. population.py
+   Aggregates population by climate class and simulates climate-driven
+   resettlement patterns.
+
+
+SCIENTIFIC CONTEXT
+------------------
+The project explores how climate change alters global climate zones and how
+these changes may affect population distribution. The simulated resettlement
+represents a possible projection under the assumption that populations relocate
+from increasingly dry regions to the nearest areas with wetter climatic
+conditions.
+
+
+REQUIREMENTS
+------------
+Python ≥ 3.9
+
+Required Python packages:
+- geopandas
+- matplotlib
+- numpy
+- pandas
+- scipy
+- shapely
+- xarray
+
+USAGE
+-----
+Run the scripts from the project root directory, depending on the analysis
+task of interest. Typical examples include:
+
+python climate_classification.py
+python extra_task.py
+python population.py
+
+
+OUTPUTS
+-------
+- Climate classification maps (PNG)
+- Population-by-climate-class tables (CSV)
+- Population summary plots (PNG)
+- Resettled population maps (PNG)
+
+
+AUTHORS
+-------
+Bilal Billouch
+Felix Reinheimer
+Programming for Geographers with Python – 2025/2026
