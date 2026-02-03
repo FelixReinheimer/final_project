@@ -1,9 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Jan 19 14:21:38 2026
+This script combines climate classification results (De Martonne classes) with gridded population data to
+(1) summarize the 2005 population distribution across climate classes for multiple scenarios/periods and
+(2) generate maps of baseline population and a simple resettlement experiment where population is moved
+from locations projected to become drier to nearby locations with the same or wetter future climate class.
+Outputs include a CSV summary table and several PNG maps.
 
-@author: bbill
 """
+
 
 import numpy as np
 import pandas as pd
@@ -42,7 +45,7 @@ pop = pop.assign_coords(time=pop.time.dt.year)
 pop2005 = pop.sel(time=2005)
 
 # ------------------------------------------------------------
-# Climate classifications (computed once)
+# Climate classifications
 # ------------------------------------------------------------
 idm_hist = run_climate_classification(pr_historical, tas_historical)
 idm_126  = run_climate_classification(pr_ssp126, tas_ssp126)
@@ -63,16 +66,16 @@ ppsat = [
 rows = []
 
 for scen, pername, idm, per in ppsat:
-    code = compute_period_mean_idm(idm, per)["climate_class_code"]
-    pop_aligned = pop2005.interp_like(code, method="nearest")
+    code = compute_period_mean_idm(idm, per)["climate_class_code"] # climate class per grid cell
+    pop_aligned = pop2005.interp_like(code, method="nearest")      # align population grid to climate grid
 
-    total = float(pop_aligned.where(~xr.ufuncs.isnan(code)).sum(skipna=True))
+    total = float(pop_aligned.where(~xr.ufuncs.isnan(code)).sum(skipna=True)) # total population on land cells with valid climate class
     for k in range(1, 8):
-        pk = float(pop_aligned.where(code == k).sum(skipna=True))
+        pk = float(pop_aligned.where(code == k).sum(skipna=True)) # population in climate class k
         rows.append([
             scen, pername, k, LABEL[k],
             pk, (pk / total * 100 if total > 0 else np.nan)
-        ])
+        ]) # share of total population (%)
 
 df = pd.DataFrame(
     rows,
@@ -134,7 +137,7 @@ def _latlon(da):
 
 
 # ------------------------------------------------------------
-# Plotting population with absolute values using classes (no log)
+# Plotting population with absolute values using classes
 # ------------------------------------------------------------
 POP_CLASS_LABELS = [
     "0",
@@ -153,20 +156,22 @@ N_POP_CLASSES = 9
 
 def classify_population(pop2d: xr.DataArray) -> xr.DataArray:
     """
-    Convert absolute population values to discrete classes for plotting.
+    Classify absolute population values per grid cell into discrete
+    magnitude-based classes for visualization.
 
-    Class codes:
-      1: [0, 1)           
-      2: [1, 10)
-      3: [10, 100)
-      4: [100, 1,000)
-      5: [1,000, 10,000)
-      6: [10,000, 100,000)
-      7: [100,000, 1,000,000)
-      8: [1,000,000, 10,000,000)
-      9: [10,000,000, +inf)
+    Class codes (people per grid cell):
+      1: 0   ≤ p < 1
+      2: 1   ≤ p < 10
+      3: 10  ≤ p < 100
+      4: 100 ≤ p < 1,000
+      5: 1,000 ≤ p < 10,000
+      6: 10,000 ≤ p < 100,000
+      7: 100,000 ≤ p < 1,000,000
+      8: 1,000,000 ≤ p < 10,000,000
+      9: p ≥ 10,000,000
 
-    NaNs stay NaN (ocean / no-data).
+    NaN values remain NaN (e.g. ocean or no-data cells).
+    
     """
     pop_class = xr.full_like(pop2d, np.nan, dtype=np.float32)
 
@@ -185,7 +190,8 @@ def classify_population(pop2d: xr.DataArray) -> xr.DataArray:
 
 def plot_pop_map(pop2d, title, outfile):
     """
-    Plot population as discrete classes based on absolute values (no log transform).
+    Plot population as discrete classes based on absolute values.
+    
     """
     # Keep NaNs (ocean) as NaN
     pop2d = pop2d.where(np.isfinite(pop2d))
@@ -193,29 +199,14 @@ def plot_pop_map(pop2d, title, outfile):
     lat, lon = _latlon(pop2d)
 
     pop_class = classify_population(pop2d)
-    # ------------------------------------------------------------
-    # Debug: check for unclassified finite population values
-    # ------------------------------------------------------------
-    unclassified = np.isfinite(pop2d) & pop_class.isnull()
-    n_unclassified = int(unclassified.sum())
-    
-    print("\n[DEBUG] classification coverage check:", title)
-    print("finite pop2d cells:", int(np.isfinite(pop2d).sum()))
-    print("unclassified finite cells:", n_unclassified)
-    
-    if n_unclassified > 0:
-        bad_vals = pop2d.where(unclassified, drop=True)
-        print("min/max of unclassified values:", float(bad_vals.min()), float(bad_vals.max()))
-        # show a few example values (optional)
-        print("sample unclassified values:", bad_vals.values.ravel()[:10])
-
     
     # Discrete colormap for 9 classes
     base = plt.cm.viridis(np.linspace(0, 1, N_POP_CLASSES))
     cmap = ListedColormap(base)
     cmap.set_bad(color="lightgrey")  # NaNs = ocean
 
-    norm = BoundaryNorm(np.arange(0.5, N_POP_CLASSES + 1.5, 1.0), cmap.N)
+    norm = BoundaryNorm(np.arange(0.5, N_POP_CLASSES + 1.5, 1.0), cmap.N) # discrete color mapping for population classes
+    
 
     fig, ax = plt.subplots(figsize=(11, 5.5))
     ax.set_title(title)
@@ -240,25 +231,28 @@ def plot_pop_map(pop2d, title, outfile):
 
 def resettle(pop_src, hist_code, fut_code):
     """
-    Move only if fut < hist (drier than historical). Oceans/NoData stay NaN.
-    IMPORTANT FIX: moved-from land cells become 0 (not NaN).
-
-    Note:
-    - hist_code and fut_code are climate class codes (1..7).
-    - KDTree grouping is therefore based on climate classes (1..7).
+    Redistribute population from grid cells that become drier in the future to the
+    nearest grid cell with the same or a wetter future climate class, while keeping
+    ocean/no-data cells as NaN.
+    
     """
-    pop_src = pop_src.interp_like(fut_code, method="nearest")
-    hist_code = hist_code.interp_like(fut_code, method="nearest")
+    
+    # Align population and historical climate data to the future climate grid
+    pop_src = pop_src.interp_like(fut_code, method="nearest") 
+    hist_code = hist_code.interp_like(fut_code, method="nearest") 
 
+    # Prepare latitude/longitude grids for spatial distance calculations
     latn, lonn = _latlon(fut_code)
     lat = fut_code[latn].values
     lon = fut_code[lonn].values
     LON, LAT = np.meshgrid(lon, lat)
 
+    # Extract NumPy arrays and set appropriate dtypes for numerical processing
     h = hist_code.values.astype(np.float32)
     f = fut_code.values.astype(np.float32)
     p = pop_src.values.astype(np.float64)
 
+    # Identify valid cells, determine which population moves or stays
     valid = np.isfinite(h) & np.isfinite(f) & np.isfinite(p)
 
     move = valid & (f < h) & (p > 0)
@@ -296,7 +290,9 @@ def resettle(pop_src, hist_code, fut_code):
     return xr.DataArray(after, coords=fut_code.coords, dims=fut_code.dims, name="pop_resettled")
 
 
-# ---- baseline historical climate map (no resettlement) ----
+# --------------------------------------------------------------------
+# Baseline population map under historical climate (no resettlement)
+# --------------------------------------------------------------------
 hist_code = compute_period_mean_idm(idm_hist, None)["climate_class_code"]
 pop_hist = pop2005.interp_like(hist_code, method="nearest")
 pop_hist = pop_hist.where(np.isfinite(hist_code))
@@ -307,7 +303,9 @@ plot_pop_map(
     "pop_2005_historical_baseline.png"
 )
 
-# ---- future resettlement maps (relative to historical baseline) ----
+# ------------------------------------------------------------------
+# Population resettlement maps relative to the historical baseline
+# ------------------------------------------------------------------
 future_cases = [
     ("SSP1-2.6", NEAR_FUTURE.name, idm_126, NEAR_FUTURE),
     ("SSP1-2.6", FAR_FUTURE.name,  idm_126, FAR_FUTURE),

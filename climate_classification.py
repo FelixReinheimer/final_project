@@ -229,9 +229,9 @@ def compute_period_mean_idm(idm: xr.Dataset, period: Period | None) -> xr.Datase
 
 
 
-# ------------------------------------------------------------
-# Plotting (discrete legend + country boundaries + NaN visualization)
-# ------------------------------------------------------------
+# -----------------------------------------
+# Plotting 
+# -----------------------------------------
 CLASS_LABELS = {
     1: "Arid (<10)",
     2: "Semi-arid (10–<20)",
@@ -253,6 +253,10 @@ NORM = BoundaryNorm(np.arange(0.5, 8.5, 1), CMAP.N)
 
 
 def infer_lat_lon(da: xr.DataArray):
+    """
+    Infer latitude and longitude coordinate names from an xarray DataArray.
+    
+    """
     lat = next(c for c in ["lat", "latitude", "y"] if c in da.coords)
     lon = next(c for c in ["lon", "longitude", "x"] if c in da.coords)
     return lat, lon
@@ -266,10 +270,9 @@ def plot_class_map(
     countries_gdf: gpd.GeoDataFrame
 ):
     """
-    Plot a classification map with:
-    - discrete legend
-    - country boundaries overlay
-    - NaNs displayed as grey (CMAP.set_bad)
+    Create and save a georeferenced map visualizing spatial climate classes,
+    including a discrete legend and country boundary overlay.
+    
     """
     code = class_ds["climate_class_code"]
     lat, lon = infer_lat_lon(code)
@@ -297,7 +300,7 @@ def plot_class_map(
               label=f"{CLASS_LABELS[i]}")
         for i in range(1, 8)
     ]
-    # Optional: include "No data" in the legend
+    # Include "No data" in the legend
     legend.append(Patch(facecolor="lightgrey", edgecolor="black", label="No data"))
 
     ax.legend(
@@ -320,7 +323,7 @@ def plot_class_map(
 # ------------------------------------------------------------
 def prompt_int(prompt: str) -> int:
     while True:
-        s = input(prompt).strip()
+        s = input(prompt).strip() # check for valid input
         try:
             return int(s)
         except ValueError:
@@ -330,9 +333,9 @@ def prompt_int(prompt: str) -> int:
 def ask_user_for_map_request_loop():
     """
     Main menu:
-    - user selects scenario or exits
-    - for future scenarios, user selects a period (near/far/custom/full) with validation loops
-    - returns a tuple (scenario_key, scenario_label, period_or_none)
+    Interactive command-line interface for selecting a scenario and time period
+    for map generation.
+    
     """
     print("\n=== Map Generator Menu ===")
     print("Type 'exit' to quit at any prompt.\n")
@@ -363,6 +366,8 @@ def ask_user_for_map_request_loop():
         if scenario_key == "historical":
             print("\nHistorical selected: using the full available historical time range.\n")
             return scenario_key, scenario_label, None
+            # scenario_key: internal identifier used for logic and data access
+            # scenario_label: human-readable name used for titles and output
 
         # Future scenarios: select a period
         while True:

@@ -1,8 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Jan 19 17:41:01 2026
+This script computes De Martonne climate classification maps for a historical baseline and selected
+future climate scenarios (SSP1-2.6 and SSP5-8.5 for near and far future periods). Using a country
+boundary shapefile, it allows the user to enter a country name and returns the fraction (share) of
+grid cells belonging to each De Martonne climate class within that country for each scenario/period.
 
-@author: bbill
+The output is printed as percentages per class and scenario. The script assumes lon/lat coordinates
+in EPSG:4326 and treats climate classes as discrete categorical values.
+
 """
 
 
@@ -42,8 +46,9 @@ def fractions_in_country(code, country):
     if hit.empty:
         raise ValueError(f"Country '{country}' not found in shapefile.")
 
-    geom = hit.dissolve().geometry.iloc[0]
+    geom = hit.dissolve().geometry.iloc[0] # merge all country polygons into a single geometry
 
+    # Create latitude/longitude grids for spatial masking and point-in-polygon tests
     latn, lonn = latlon(code)
     lats, lons = code[latn].values, code[lonn].values
     LON, LAT = np.meshgrid(lons, lats)
@@ -54,8 +59,9 @@ def fractions_in_country(code, country):
     ).within(geom).values.reshape(code.shape)
 
     c = code.where(inside)
-    total = np.isfinite(c).sum().item()
+    total = np.isfinite(c).sum().item() # number of valid grid cells inside the country
 
+    # Return fraction of grid cells per climate class within the country
     return {
         k: (np.sum(c.values == float(k)) / total if total else np.nan)
         for k in range(1, 8)
